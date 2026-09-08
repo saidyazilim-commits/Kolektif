@@ -5,6 +5,8 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 from app.core.security import hash_password
+from app.schemas.user import UserLogin, Token
+from app.core.security import verify_password, create_access_token
 
 router = APIRouter()
 
@@ -21,3 +23,16 @@ async def register_user(user_in: UserCreate, db:AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(new_user)
     return new_user
+
+@router.post("/login", response_model=Token)
+async def login_user(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.email == user_in.email))
+    existing_user = result.scalar_one_or_none()
+    if existing_user is None:
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    check_pw = verify_password(user_in.password, existing_user.hashed_password)
+    if check_pw:
+        token = create_access_token(data={"sub": existing_user.email})
+        return Token(access_token=token, token_type="bearer")
+    else:
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
