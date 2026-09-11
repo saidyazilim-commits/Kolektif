@@ -7,6 +7,7 @@ from app.schemas.user import UserCreate, UserResponse
 from app.core.security import hash_password
 from app.schemas.user import UserLogin, Token
 from app.core.security import verify_password, create_access_token
+from app.core.deps import get_current_user
 
 router = APIRouter()
 
@@ -36,3 +37,7 @@ async def login_user(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
         return Token(access_token=token, token_type="bearer")
     else:
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+@router.get("/me", response_model=UserResponse)
+async def read_current_user(current_user : User = Depends(get_current_user)):
+    return current_user
