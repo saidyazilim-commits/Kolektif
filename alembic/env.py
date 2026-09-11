@@ -10,6 +10,11 @@ from app.core.config import settings
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine
 from app.models.user import User
+from app.models.workspace import Workspace
+from app.models.workspace_member import WorkspaceMember
+from app.models.board import Board
+from app.models.board_column import BoardColumn
+from app.models.task import Task
 
 
 # this is the Alembic Config object, which provides
