@@ -11,6 +11,27 @@ from sqlalchemy.orm import sessionmaker
 from httpx import ASGITransport, AsyncClient
 
 
+async def register_and_login(client, email, password="pytest-sifresi-1"):
+    # Adım 1: kayıt (test_register_success'tekinin aynısı)
+    response = await client.post("/users/register", json={"email": email, "password": password})
+    assert response.status_code == 200
+
+    # Adım 2: giriş
+    response = await client.post("/users/login", json={"email": email, "password": password})
+
+    # Adım 3: cevaptan token'ı çıkar
+    token = response.json()["access_token"]
+
+    # Adım 4: header sözlüğünü döndür
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+async def owner_headers(client):
+    return await register_and_login(client, "owner@example.com")
+
+@pytest.fixture
+async def stranger_headers(client):
+    return await register_and_login(client, "stranger@example.com")
 
 @pytest.fixture
 async def engine():
