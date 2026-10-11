@@ -16,3 +16,4 @@ async def test_stranger_cannot_read_workspace(client, owner_headers, stranger_he
     # 4. header yok
     response = await client.get(f"/workspaces/{ws_id}")
     assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
