@@ -26,7 +26,7 @@ async def register_and_login(client, email, password="pytest-sifresi-1"):
     return {"Authorization": f"Bearer {token}"}
 
 async def make_column(client, headers):
-    # column_id fixture'ının gövdesi, owner_headers yerine headers kullanarak
+    # workspace, board ve kolon oluşturur, kolon id'sini döndürür
     # 1. workspace
     response = await client.post("/workspaces/", json={"name": "task_test_ws"}, headers=headers)
     assert response.status_code == 200
