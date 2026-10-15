@@ -25,6 +25,23 @@ async def register_and_login(client, email, password="pytest-sifresi-1"):
     # Adım 4: header sözlüğünü döndür
     return {"Authorization": f"Bearer {token}"}
 
+async def make_column(client, headers):
+    # column_id fixture'ının gövdesi, owner_headers yerine headers kullanarak
+    # 1. workspace
+    response = await client.post("/workspaces/", json={"name": "task_test_ws"}, headers=headers)
+    assert response.status_code == 200
+    ws_id = response.json()["id"]
+
+    # 2. board
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "task_test_board"}, headers=headers)
+    assert response.status_code == 200
+    board_id = response.json()["id"]
+
+    # 3. kolon
+    response = await client.post(f"/boards/{board_id}/columns", json={"name": "To Do", "position": 0}, headers=headers)
+    assert response.status_code == 200
+    return response.json()["id"]
+
 @pytest.fixture
 async def owner_headers(client):
     return await register_and_login(client, "owner@example.com")
@@ -35,20 +52,11 @@ async def stranger_headers(client):
 
 @pytest.fixture
 async def column_id(client, owner_headers):
-    # 1. workspace
-    response = await client.post("/workspaces/", json={"name": "task_test_ws"}, headers=owner_headers)
-    assert response.status_code == 200
-    ws_id = response.json()["id"]
+    return await make_column(client, owner_headers)
 
-    # 2. board
-    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "task_test_board"}, headers=owner_headers)
-    assert response.status_code == 200
-    board_id = response.json()["id"]
-
-    # 3. kolon
-    response = await client.post(f"/boards/{board_id}/columns", json={"name": "To Do", "position": 0}, headers=owner_headers)
-    assert response.status_code == 200
-    return response.json()["id"]
+@pytest.fixture
+async def foreign_column_id(client, stranger_headers):
+    return await make_column(client, stranger_headers)
 
 @pytest.fixture
 async def engine():
