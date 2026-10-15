@@ -34,6 +34,23 @@ async def stranger_headers(client):
     return await register_and_login(client, "stranger@example.com")
 
 @pytest.fixture
+async def column_id(client, owner_headers):
+    # 1. workspace
+    response = await client.post("/workspaces/", json={"name": "task_test_ws"}, headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()["id"]
+
+    # 2. board
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "task_test_board"}, headers=owner_headers)
+    assert response.status_code == 200
+    board_id = response.json()["id"]
+
+    # 3. kolon
+    response = await client.post(f"/boards/{board_id}/columns", json={"name": "To Do", "position": 0}, headers=owner_headers)
+    assert response.status_code == 200
+    return response.json()["id"]
+
+@pytest.fixture
 async def engine():
     # Make a test engine
     test_engine = create_async_engine(settings.TEST_DATABASE_URL, poolclass=NullPool)
