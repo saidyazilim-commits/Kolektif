@@ -38,3 +38,34 @@ async def test_workspace_creation_is_atomic(client, owner_headers, engine, monke
         count = result.scalar()
 
     assert count == 0
+
+async def test_member_cannot_add_members(client, owner_headers, stranger_headers, third_headers):
+    # 0. kullanıcı numaraları
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200
+    stranger_id = response.json()["id"]
+    response = await client.get("/users/me", headers=third_headers)
+    assert response.status_code == 200
+    third_id = response.json()["id"]
+
+    # 1. sahip workspace oluşturur
+    response = await client.post("/workspaces/", json={"name": "rol_testi"}, headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()["id"]
+
+    # 2. sahip, yabancıyı "member" olarak ekler
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200
+
+    # 3. artık üye: workspace'i okuyabilir
+    response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
+    assert response.status_code == 200
+
+    # 4. ama üye ekleyemez
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": third_id, "role": "member"}, headers=stranger_headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not the owner of this workspace"
+
+    # 5. üçüncü kişi hâlâ dışarıda
+    response = await client.get(f"/workspaces/{ws_id}", headers=third_headers)
+    assert response.status_code == 403

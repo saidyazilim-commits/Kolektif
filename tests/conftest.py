@@ -51,6 +51,10 @@ async def stranger_headers(client):
     return await register_and_login(client, "stranger@example.com")
 
 @pytest.fixture
+async def third_headers(client):
+    return await register_and_login(client, "third@example.com")
+
+@pytest.fixture
 async def column_id(client, owner_headers):
     return await make_column(client, owner_headers)
 
