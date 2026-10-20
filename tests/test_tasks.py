@@ -72,3 +72,38 @@ async def test_cannot_assign_non_member(client, owner_headers, stranger_headers,
     response = await client.get(f"/columns/{column_id}/tasks", headers=owner_headers)
     assert len(response.json()) == 1
     assert response.json()[0]["assignee_id"] is None
+
+async def test_member_cannot_delete_task(client, owner_headers, stranger_headers, column_id):
+    # 0. yabancının numarası ve sahibin workspace numarası
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200
+    stranger_id = response.json()["id"]
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()[0]["id"]
+
+    # 1. sahip, yabancıyı "member" olarak ekler
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200
+
+    # 2. sahip bir task oluşturur
+    response = await client.post(f"/columns/{column_id}/tasks", json={"title": "t1", "position": 0}, headers=owner_headers)
+    assert response.status_code == 200
+    task_id = response.json()["id"]
+
+    # 3. member o task'ı silemez
+    response = await client.delete(f"/tasks/{task_id}", headers=stranger_headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Owner role required"
+
+    # 4. task hâlâ yerinde
+    response = await client.get(f"/columns/{column_id}/tasks", headers=owner_headers)
+    assert len(response.json()) == 1
+
+    # 5. owner silebilir
+    response = await client.delete(f"/tasks/{task_id}", headers=owner_headers)
+    assert response.status_code == 204
+
+    # 6. liste boş
+    response = await client.get(f"/columns/{column_id}/tasks", headers=owner_headers)
+    assert len(response.json()) == 0

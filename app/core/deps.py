@@ -63,3 +63,9 @@ async def get_task_with_access(task_id: int, user_id: int, db: AsyncSession) -> 
     
     await get_column_with_access(task.column_id, user_id, db)
     return task
+
+async def verify_workspace_owner(workspace_id: int, user_id: int, db: AsyncSession) -> WorkspaceMember:
+    membership = await verify_workspace_membership(workspace_id, user_id, db)
+    if membership.role != "owner":
+        raise HTTPException(status_code=403, detail="Owner role required")
+    return membership

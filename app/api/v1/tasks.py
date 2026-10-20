@@ -3,10 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
 from app.models.board import Board
+from app.models.board_column import BoardColumn
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
-from app.core.deps import get_current_user, get_column_with_access, get_task_with_access, verify_workspace_membership
+from app.core.deps import get_current_user, get_column_with_access, get_task_with_access, verify_workspace_membership, verify_workspace_owner
 
 router = APIRouter()
 
@@ -65,6 +66,7 @@ async def update_task(
     await db.refresh(task)
     return task
 
+
 @router.delete("/tasks/{task_id}", status_code=204)
 async def delete_task(
     task_id: int,
@@ -72,5 +74,14 @@ async def delete_task(
     current_user: User = Depends(get_current_user)
 ):
     task = await get_task_with_access(task_id, current_user.id, db)
+
+    column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == task.column_id))
+    column = column_result.scalar_one()
+
+    board_result = await db.execute(select(Board).where(Board.id == column.board_id))
+    board = board_result.scalar_one()
+
+    await verify_workspace_owner(board.workspace_id, current_user.id, db)
+
     await db.delete(task)
     await db.commit()
