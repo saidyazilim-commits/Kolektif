@@ -69,3 +69,22 @@ async def test_member_cannot_add_members(client, owner_headers, stranger_headers
     # 5. üçüncü kişi hâlâ dışarıda
     response = await client.get(f"/workspaces/{ws_id}", headers=third_headers)
     assert response.status_code == 403
+
+async def test_invalid_role_is_rejected(client, owner_headers, stranger_headers):
+    # 0. yabancının numarası
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200
+    stranger_id = response.json()["id"]
+
+    # 1. sahip workspace oluşturur
+    response = await client.post("/workspaces/", json={"name": "rol_dogrulama"}, headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()["id"]
+
+    # 2. sahip geçersiz bir rolle eklemeyi dener
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "superadmin"}, headers=owner_headers)
+    assert response.status_code == 422
+
+    # 3. yabancı hâlâ üye değil
+    response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
+    assert response.status_code == 403

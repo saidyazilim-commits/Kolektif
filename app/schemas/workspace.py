@@ -1,5 +1,6 @@
 from pydantic import ConfigDict, BaseModel
 import datetime
+from typing import Literal
 
 class WorkspaceCreate(BaseModel):
     name : str
@@ -13,4 +14,4 @@ class WorkspaceResponse(BaseModel):
 
 class WorkspaceMemberCreate(BaseModel):
     user_id : int
-    role : str
+    role : Literal["owner", "member"]
