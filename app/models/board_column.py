@@ -13,7 +13,7 @@ class BoardColumn(Base):
 
     id : Mapped[int] = mapped_column(Integer, primary_key=True)
     name : Mapped[str] = mapped_column(String, nullable=False)
-    board_id : Mapped[int] = mapped_column(ForeignKey("boards.id"))
+    board_id : Mapped[int] = mapped_column(ForeignKey("boards.id", ondelete="CASCADE"))
     position : Mapped[int] = mapped_column(Integer)
     created_at : Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
     board: Mapped["Board"] = relationship(back_populates="columns")

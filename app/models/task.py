@@ -14,7 +14,7 @@ class Task(Base):
     id : Mapped[int] = mapped_column(Integer, primary_key=True)
     title : Mapped[str] = mapped_column(String, nullable=False)
     description : Mapped[str] = mapped_column(String, nullable=True)
-    column_id : Mapped[int] = mapped_column(ForeignKey("board_columns.id"))
+    column_id : Mapped[int] = mapped_column(ForeignKey("board_columns.id", ondelete="CASCADE"))
     assignee_id : Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
     position : Mapped[int] = mapped_column(Integer)
     created_at : Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
