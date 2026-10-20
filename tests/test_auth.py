@@ -36,3 +36,22 @@ async def test_register_rejects_invalid_input(client):
     # 5. 40 karakter ama 80 bayt: bcrypt sınırını aşar
     response = await client.post("/users/register", json={"email": "turkce@example.com", "password": "ş" * 40})
     assert response.status_code == 422
+
+async def test_login_with_overlong_password_does_not_crash(client):
+    # 1. normal kullanıcı
+    response = await client.post("/users/register", json={"email": "login@example.com", "password": "pytest-sifresi-1"})
+    assert response.status_code == 200
+
+    # 2. 100 karakterlik şifreyle giriş denemesi
+    response = await client.post("/users/login", json={"email": "login@example.com", "password": "a" * 100})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect email or password"
+
+    # 2b. var olmayan e-postayla aynı cevap: kayıtlı olup olmadığı sızmıyor
+    response = await client.post("/users/login", json={"email": "yok@example.com", "password": "a" * 100})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect email or password"
+
+    # 3. doğru şifre hâlâ çalışıyor
+    response = await client.post("/users/login", json={"email": "login@example.com", "password": "pytest-sifresi-1"})
+    assert response.status_code == 200
