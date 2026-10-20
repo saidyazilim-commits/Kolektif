@@ -18,12 +18,13 @@ async def create_workspace(
 ):
     workspace = Workspace(name=workspace_in.name)
     db.add(workspace)
-    await db.commit()
-    await db.refresh(workspace)
+    await db.flush()
 
     workspace_member = WorkspaceMember(user_id=current_user.id, workspace_id=workspace.id, role="owner")
     db.add(workspace_member)
     await db.commit()
+    await db.refresh(workspace)
+
 
     return workspace
 
