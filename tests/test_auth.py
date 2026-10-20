@@ -32,3 +32,7 @@ async def test_register_rejects_invalid_input(client):
     # 4. reddedilen istek kullanıcı oluşturmadı: aynı e-posta geçerli şifreyle kaydolabilir
     response = await client.post("/users/register", json={"email": "kisa@example.com", "password": "pytest-sifresi-1"})
     assert response.status_code == 200
+
+    # 5. 40 karakter ama 80 bayt: bcrypt sınırını aşar
+    response = await client.post("/users/register", json={"email": "turkce@example.com", "password": "ş" * 40})
+    assert response.status_code == 422
