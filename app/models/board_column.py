@@ -17,4 +17,4 @@ class BoardColumn(Base):
     position : Mapped[int] = mapped_column(Integer)
     created_at : Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
     board: Mapped["Board"] = relationship(back_populates="columns")
-    tasks: Mapped[list["Task"]] = relationship(back_populates="column")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="column", cascade="all, delete-orphan", passive_deletes=True)

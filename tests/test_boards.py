@@ -80,3 +80,75 @@ async def test_member_cannot_delete_board(client, owner_headers, stranger_header
     # 3. board hâlâ yerinde
     response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
     assert len(response.json()) == 1
+
+async def test_owner_can_delete_column_and_its_tasks(client, owner_headers, column_id):
+    # 1. owner yeni kolona yeni bir task ekler
+    response = await client.post(f"/columns/{column_id}/tasks", json={"title": "new_task", "position": 0}, headers=owner_headers)
+    assert response.status_code == 200
+    task_id = response.json()["id"]
+    # 2. owner kolonu siler
+    response = await client.delete(f"/columns/{column_id}", headers=owner_headers)
+    assert response.status_code == 204
+    # 3-a. kolon silinince görev de gider
+    response = await client.delete(f"/tasks/{task_id}", headers=owner_headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Task not found!"
+    
+
+async def test_non_member_cannot_delete_column(client, owner_headers, stranger_headers, column_id):
+    # 1. yabancı kolon silemez 
+    response = await client.delete(f"/columns/{column_id}", headers=stranger_headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not a member of this workspace"
+    # 2. kolon hala var mı?
+    response = await client.post(f"/columns/{column_id}/tasks", json={"title": "trial_title", "position": 0} ,headers=owner_headers)
+    assert response.status_code == 200
+
+async def test_member_cannot_delete_column(client, owner_headers, stranger_headers, column_id):
+    # 0. numaralar
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200
+    stranger_id = response.json()["id"]
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()[0]["id"]
+    # 1. owner, yabancıyı "member" olarak ekler
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"} ,headers=owner_headers)
+    assert response.status_code == 200
+    # 2. member kolon silemez
+    response = await client.delete(f"/columns/{column_id}", headers=stranger_headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Owner role required"
+
+async def test_delete_missing_column_returns_404(client, owner_headers):
+    # 1. owner, olmayan kolonu siler
+    response = await client.delete(f"/columns/{99999}", headers=owner_headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Column not found"
+
+async def test_delete_column_only_affects_that_columns_board(client, owner_headers, column_id):
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()[0]["id"]
+    # owner workspace'inde ikinci board oluşturma
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "second_board"} ,headers=owner_headers)
+    assert response.status_code == 200, response.text
+    board_id = response.json()["id"]
+
+    # ikinci boarda kolon ekleme
+    response = await client.post(f"/boards/{board_id}/columns", json={"name": "second_board_column", "position": 0}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    board_column_id = response.json()["id"]
+
+    # ikinci boardun kolonunu silme
+    response = await client.delete(f"/columns/{board_column_id}", headers=owner_headers)
+    assert response.status_code == 204, response.text
+
+    # ilk boarda task ekleme
+    response = await client.post(f"/columns/{column_id}/tasks", json={"title": "new_task", "position": 0}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # silinen ikinci boardun kolonuna task ekleme
+    response = await client.post(f"/columns/{board_column_id}/tasks", json={"title": "silinen_kolon_taski", "position": 0}, headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Column not found!"
