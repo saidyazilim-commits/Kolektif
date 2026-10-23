@@ -42,5 +42,14 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root
 
+      - name: Apply migrations
+        run: poetry run alembic upgrade head
+
+      - name: Check migrations match models
+        run: poetry run alembic check
+
+      - name: Roll migrations back
+        run: poetry run alembic downgrade base
+
       - name: Run tests
         run: poetry run pytest -v
