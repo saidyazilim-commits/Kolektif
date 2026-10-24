@@ -45,6 +45,7 @@ async def test_deleting_board_removes_columns_and_tasks(client, owner_headers, c
     # 3. board artık yok
     response = await client.get(f"/boards/{board_id}/columns", headers=owner_headers)
     assert response.status_code == 404
+    assert response.json()["detail"] == "Board not found"
 
     # 4. altındaki kolon ve task da gitti
     async with engine.connect() as connection:
@@ -92,7 +93,7 @@ async def test_owner_can_delete_column_and_its_tasks(client, owner_headers, colu
     # 3-a. kolon silinince görev de gider
     response = await client.delete(f"/tasks/{task_id}", headers=owner_headers)
     assert response.status_code == 404
-    assert response.json()["detail"] == "Task not found!"
+    assert response.json()["detail"] == "Task not found"
     
 
 async def test_non_member_cannot_delete_column(client, owner_headers, stranger_headers, column_id):
@@ -151,7 +152,7 @@ async def test_delete_column_only_affects_that_columns_board(client, owner_heade
     # silinen ikinci boardun kolonuna task ekleme
     response = await client.post(f"/columns/{board_column_id}/tasks", json={"title": "silinen_kolon_taski", "position": 0}, headers=owner_headers)
     assert response.status_code == 404, response.text
-    assert response.json()["detail"] == "Column not found!"
+    assert response.json()["detail"] == "Column not found"
 
 async def test_member_can_rename_board(client, owner_headers, stranger_headers):
     # owner, workspace açar

@@ -20,7 +20,7 @@ async def create_column(
     board_result = await db.execute(select(Board).where(Board.id == board_id))
     board = board_result.scalar_one_or_none()
     if board is None:
-        raise HTTPException(status_code=404, detail="Board Not Found!")
+        raise HTTPException(status_code=404, detail="Board not found")
     await verify_workspace_membership(board.workspace_id, current_user.id, db)
     boardColumn = BoardColumn(name=column_in.name, position=column_in.position, board_id=board_id)
     db.add(boardColumn)
@@ -37,7 +37,7 @@ async def list_columns(
     board_result = await db.execute(select(Board).where(Board.id == board_id))
     board = board_result.scalar_one_or_none()
     if board is None:
-        raise HTTPException(status_code=404, detail="Board Not Found")
+        raise HTTPException(status_code=404, detail="Board not found")
     await verify_workspace_membership(board.workspace_id, current_user.id, db)
     columns_result = await db.execute(select(BoardColumn).where(BoardColumn.board_id == board_id))
     columns = columns_result.scalars().all()
