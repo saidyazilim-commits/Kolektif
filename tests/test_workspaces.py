@@ -88,3 +88,99 @@ async def test_invalid_role_is_rejected(client, owner_headers, stranger_headers)
     # 3. yabancı hâlâ üye değil
     response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
     assert response.status_code == 403
+
+async def test_owner_can_delete_workspace_and_its_boards(client, owner_headers):
+    # 1-a. sahip workspace oluşturur
+    response = await client.post("/workspaces/", json={"name": "workspace_silme_testi"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 2. owner, aynı workspace ait board oluşturur
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "first_board"} ,headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # 3. owner, workspace siler ve boardlar gider
+    response = await client.delete(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.status_code == 204, response.text
+
+    # 4. silinmiş workspace boards listeleme
+    # Soru: “Silinmiş workspace’in board listesi 403 mü, neden?”
+    # Cevap: üyelik satırını arıyor. workspace silinince üyelik satırı da silindi, kimse üye değil.
+    response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
+    assert response.status_code == 403, response.text
+    
+async def test_member_cannot_delete_workspace(client, owner_headers, stranger_headers):
+    # 1. owner, workspace oluşturur
+    response = await client.post("/workspaces/", json={"name": "silme_testi"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+    
+    # 0. kullanıcı numaraları
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text  
+    stranger_id = response.json()["id"]
+
+    # 1-a. owner, yabancıyı "member" olarak ekler
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"} ,headers=owner_headers)
+    assert response.status_code == 200
+
+    # 2. member, workspace silemez
+    response = await client.delete(f"/workspaces/{ws_id}", headers=stranger_headers)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Owner role required"
+
+    # 3. workspace hala duruyor mu
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "silme_testi"
+
+async def test_non_member_cannot_delete_workspace(client, owner_headers, stranger_headers):
+    # 1. sahip workspace oluşturur
+    response = await client.post("/workspaces/", json={"name": "silme_testi"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 2. yabancı workspace silemez
+    response = await client.delete(f"/workspaces/{ws_id}", headers=stranger_headers)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Not a member of this workspace"
+
+    # 3. workspace hala duruyor mu
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "silme_testi"
+
+async def test_delete_missing_workspace_returns_404(client, owner_headers):
+    
+    # 1. owner, workspace siler ve 404 alır
+    response = await client.delete(f"/workspaces/{999999}", headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Workspace not found"
+
+async def test_delete_workspace_does_not_affect_other_workspaces(client, owner_headers):
+    # 1. owner, ilk workspace oluşturur
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws1_id = response.json()["id"]
+
+    # 2. owner, ikinci workspace oluşturur
+    response = await client.post(f"/workspaces/", json={"name": "workspace_2"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws2_id = response.json()["id"]
+
+    # owner, ilk workspace bir board ekler
+    response = await client.post(f"/workspaces/{ws1_id}/boards", json={"name": "first_board"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    
+    # owner, ikinci workspace bir board ekler
+    response = await client.post(f"/workspaces/{ws2_id}/boards", json={"name": "second_board"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # owner, ilk workspace'i siler
+    response = await client.delete(f"/workspaces/{ws1_id}", headers=owner_headers)
+    assert response.status_code == 204, response.text
+
+    # owner, ikinci workspace'in board listensinin 1 olduğunu doğrular
+    response = await client.get(f"/workspaces/{ws2_id}/boards", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert len(response.json()) == 1

@@ -13,4 +13,4 @@ class Workspace(Base):
     id : Mapped[int] = mapped_column(Integer, primary_key=True)
     name : Mapped[str] = mapped_column(String, nullable=False)
     created_at : Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
-    boards: Mapped[list["Board"]] = relationship(back_populates="workspace")
+    boards: Mapped[list["Board"]] = relationship(back_populates="workspace", cascade="all, delete-orphan", passive_deletes=True)

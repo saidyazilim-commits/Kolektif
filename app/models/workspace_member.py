@@ -14,7 +14,7 @@ class WorkspaceMember(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id : Mapped[int] = mapped_column(ForeignKey("users.id"))
-    workspace_id : Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    workspace_id : Mapped[int] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"))
     role: Mapped[str] = mapped_column(String, nullable=False)
     joined_at : Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
     user: Mapped["User"] = relationship()

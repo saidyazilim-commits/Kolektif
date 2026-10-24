@@ -13,7 +13,7 @@ class Board(Base):
 
     id : Mapped[int] = mapped_column(Integer, primary_key=True)
     name : Mapped[str] = mapped_column(String, nullable=False)
-    workspace_id : Mapped[int] = mapped_column(ForeignKey("workspaces.id"))
+    workspace_id : Mapped[int] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"))
     created_at : Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
     workspace: Mapped["Workspace"] = relationship(back_populates="boards")
     columns: Mapped[list["BoardColumn"]] = relationship(back_populates="board", cascade="all, delete-orphan", passive_deletes=True)

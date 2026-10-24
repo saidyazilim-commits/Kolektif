@@ -6,7 +6,7 @@ from app.models.workspace import Workspace
 from app.models.workspace_member import WorkspaceMember
 from app.models.user import User
 from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberCreate
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, verify_workspace_owner
 
 router = APIRouter()
 
@@ -104,3 +104,22 @@ async def add_workspace_member(
     await db.commit()
     await db.refresh(new_member)
     return new_member
+
+@router.delete("/{workspace_id}", status_code=204)
+async def delete_workspace(
+    workspace_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. workspace'i bul; yoksa 404 "Workspace not found"
+    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = workspace_result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    # 2. owner mı? (hangi helper? await?)
+    await verify_workspace_owner(workspace.id, current_user.id, db)
+    # 3. sil + kaydet
+    await db.delete(workspace)
+    await db.commit()
+    
