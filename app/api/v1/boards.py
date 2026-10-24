@@ -7,6 +7,7 @@ from app.models.board_column import BoardColumn
 from app.models.user import User
 from app.schemas.board import BoardCreate, BoardResponse, BoardUpdate
 from app.core.deps import get_current_user, verify_workspace_membership, verify_workspace_owner
+from app.schemas.board_column import BoardColumnResponse, BoardColumnUpdate
 
 router = APIRouter()
 
@@ -74,6 +75,34 @@ async def rename_board(
     await db.commit()
     await db.refresh(board)
     return board
+
+@router.patch("/columns/{column_id}", response_model=BoardColumnResponse)
+async def rename_column(
+    column_id: int,
+    column_in: BoardColumnUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # 1. kolonu bul
+    column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
+    column = column_result.scalar_one_or_none()
+    if column is None:
+        raise HTTPException(status_code=404, detail="Column not found")
+
+    # 2. kolonun board'unu bul
+    board_result = await db.execute(select(Board).where(Board.id == column.board_id))
+    board = board_result.scalar_one_or_none()
+    if board is None:
+        raise HTTPException(status_code=404, detail="Board not found")
+
+    # 3. üye mi? (workspace id'si board'dan gelir)
+    await verify_workspace_membership(board.workspace_id, current_user.id, db)
+
+    # 4. ismi değiştir, kaydet, yenile, döndür
+    column.name = column_in.name
+    await db.commit()
+    await db.refresh(column)
+    return column
 
 @router.delete("/columns/{column_id}", status_code=204)
 async def delete_column(column_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

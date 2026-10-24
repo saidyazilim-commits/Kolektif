@@ -239,3 +239,41 @@ async def test_rename_board_rejects_empty_name(client, owner_headers, stranger_h
     assert response.status_code == 200, response.text
     names = [b["name"] for b in response.json()]
     assert "first_board" in names
+
+async def test_member_can_rename_column(client, owner_headers, stranger_headers, column_id):
+
+    # workspace numarası
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()[0]["id"]
+
+    # owner, stranger'ı member olarak ekler
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    
+    # yabancı kolonun adını değiştirir
+    response = await client.patch(f"/columns/{column_id}", json={"name": "renamed_column"}, headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "renamed_column"
+
+async def test_non_member_cannot_rename_column(client, owner_headers, stranger_headers, column_id):
+    # yabancı kolonun adını değiştiremez
+    response = await client.patch(f"/columns/{column_id}", json={"name": "renamed_column"}, headers=stranger_headers)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Not a member of this workspace"
+
+async def test_rename_missing_column_returns_404(client, owner_headers):
+    # 1. owner, olmayan kolonun ismini değiştiremez
+    response = await client.patch(f"/columns/{99999}", json={"name": "not_exist_column"} ,headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Column not found"
+
+async def test_rename_column_rejects_empty_name(client, owner_headers, column_id):
+    # owner, kolon ismini boş isim ile değiştiremez
+    response = await client.patch(f"/columns/{column_id}", json={"name": ""}, headers=owner_headers)
+    assert response.status_code == 422, response.text
+

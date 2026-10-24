@@ -1,4 +1,4 @@
-from pydantic import ConfigDict, BaseModel
+from pydantic import ConfigDict, BaseModel, Field
 import datetime
 
 class BoardColumnCreate(BaseModel):
@@ -13,3 +13,6 @@ class BoardColumnResponse(BaseModel):
     created_at : datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class BoardColumnUpdate(BaseModel):
+    name : str = Field(min_length=1)
