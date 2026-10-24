@@ -184,3 +184,95 @@ async def test_delete_workspace_does_not_affect_other_workspaces(client, owner_h
     response = await client.get(f"/workspaces/{ws2_id}/boards", headers=owner_headers)
     assert response.status_code == 200, response.text
     assert len(response.json()) == 1
+
+async def test_member_can_rename_workspace(client, owner_headers, stranger_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+    # owner, workspace görür
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # owner, stranger'ı member olarak ekler
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # stranger, workspace adı değiştirir
+    response = await client.patch(f"/workspaces/{ws_id}", json={"name": "yeni_workspace_adi"}, headers=stranger_headers)
+    assert response.status_code == 200, response.text
+
+    # owner, GET ile aynı adı görür
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "yeni_workspace_adi"
+
+async def test_owner_can_rename_workspace(client, owner_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+    # owner, workspace görür
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # owner, workspace adı değiştirir
+    response = await client.patch(f"/workspaces/{ws_id}", json={"name": "yeni_workspace_adi"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "yeni_workspace_adi"
+
+async def test_non_member_cannot_rename_workspace(client, owner_headers, stranger_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # stranger, workspace adı değiştirir
+    response = await client.patch(f"/workspaces/{ws_id}", json={"name": "yeni_workspace_adi"}, headers=stranger_headers)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Not a member of this workspace"
+
+    # owner, GET ile eski workspace adını doğrular
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.json()["name"] == "workspace_1"
+
+async def test_rename_missing_workspace_returns_404(client, owner_headers):
+    # 1. owner, workspace göremez ve 404 alır
+    response = await client.patch(f"/workspaces/{999999}",json={"name": "herhangi_bir_ad"}, headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Workspace not found"
+
+async def test_rename_workspace_rejects_empty_name(client, owner_headers, stranger_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # owner, workspace ismini boş isim ile değştiremez
+    response = await client.patch(f"/workspaces/{ws_id}", json={"name": ""}, headers= owner_headers)
+    assert response.status_code == 422, response.text
+
+    # owner, stranger'ı member olarak ekler
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # member, workspace isminni boş isim ile değiştiremez
+    response = await client.patch(f"/workspaces/{ws_id}", json={"name": ""}, headers=stranger_headers)
+    assert response.status_code == 422, response.text
+
+    # owner ismin değişmediği görür
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.json()["name"] == "workspace_1"
+
+    # member, ismin değişmediğini görür
+    response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
+    assert response.json()["name"] == "workspace_1"
+    

@@ -5,8 +5,8 @@ from app.db.session import get_db
 from app.models.workspace import Workspace
 from app.models.workspace_member import WorkspaceMember
 from app.models.user import User
-from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberCreate
-from app.core.deps import get_current_user, verify_workspace_owner
+from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberCreate, WorkspaceUpdate
+from app.core.deps import get_current_user, verify_workspace_owner, verify_workspace_membership
 
 router = APIRouter()
 
@@ -123,3 +123,23 @@ async def delete_workspace(
     await db.delete(workspace)
     await db.commit()
     
+@router.patch("/{workspace_id}", response_model=WorkspaceResponse)
+async def rename_workspace(
+    workspace_id: int,
+    workspace_in: WorkspaceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. workspace'i bul; yoksa 404 "Workspace not found"
+    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = workspace_result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    # 2. üye kontrolü yap workspace.id ile
+    await verify_workspace_membership(workspace.id, current_user.id, db)
+    # 3. adı güncelle, kaydet, güncel hâli yenile
+    workspace.name = workspace_in.name
+    await db.commit()
+    await db.refresh(workspace)
+    # 4. güncellenmiş workspace'i döndür
+    return workspace
