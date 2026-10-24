@@ -18,10 +18,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
     
     if bcrypt.checkpw(plain_password, hashed_password):
-        print("It Matches!")
         return True
     else:
-        print("It Does not Match :(")
         return False
     
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
