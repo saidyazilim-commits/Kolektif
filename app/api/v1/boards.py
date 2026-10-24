@@ -5,7 +5,7 @@ from app.db.session import get_db
 from app.models.board import Board
 from app.models.board_column import BoardColumn
 from app.models.user import User
-from app.schemas.board import BoardCreate, BoardResponse
+from app.schemas.board import BoardCreate, BoardResponse, BoardUpdate
 from app.core.deps import get_current_user, verify_workspace_membership, verify_workspace_owner
 
 router = APIRouter()
@@ -50,6 +50,30 @@ async def delete_board(
 
     await db.delete(board)
     await db.commit()
+
+@router.patch("/boards/{board_id}", response_model=BoardResponse)
+async def rename_board(
+    board_id: int,
+    board_in: BoardUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # 1. board'u bul
+    board_result = await db.execute(select(Board).where(Board.id == board_id))
+    board = board_result.scalar_one_or_none()
+
+    # 2. yoksa 404, 
+    if board is None:
+        raise HTTPException(status_code=404, detail="Board not found")
+
+    # 3. üye mi kontrolü
+    await verify_workspace_membership(board.workspace_id, current_user.id, db)
+
+    # 4. ismi değiştir, kaydet, yenile, döndür
+    board.name = board_in.name
+    await db.commit()
+    await db.refresh(board)
+    return board
 
 @router.delete("/columns/{column_id}", status_code=204)
 async def delete_column(column_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

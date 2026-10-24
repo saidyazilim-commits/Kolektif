@@ -152,3 +152,90 @@ async def test_delete_column_only_affects_that_columns_board(client, owner_heade
     response = await client.post(f"/columns/{board_column_id}/tasks", json={"title": "silinen_kolon_taski", "position": 0}, headers=owner_headers)
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "Column not found!"
+
+async def test_member_can_rename_board(client, owner_headers, stranger_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # owner, workspace'te board oluşturma
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "first_board"} ,headers=owner_headers)
+    assert response.status_code == 200, response.text
+    board_id = response.json()["id"]
+
+    # owner, stranger'ı member olarak ekler
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # stranger, workspace'in board'unun adı değiştirir
+    response = await client.patch(f"/boards/{board_id}", json={"name": "yeni_board_adi"}, headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "yeni_board_adi"
+
+async def test_non_member_cannot_rename_board(client, owner_headers, stranger_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # owner, workspace'te board oluşturma
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "first_board"} ,headers=owner_headers)
+    assert response.status_code == 200, response.text
+    board_id = response.json()["id"]
+
+
+    # stranger, workspace'in board'unun adı değiştiremez
+    response = await client.patch(f"/boards/{board_id}", json={"name": "yeni_board_adi"}, headers=stranger_headers)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Not a member of this workspace"
+
+    # owner, board listesine bakar
+    response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    names = [b["name"] for b in response.json()]
+    assert "first_board" in names
+
+async def test_rename_missing_board_returns_404(client, owner_headers):
+    # 1. owner, olmayan kolonun ismini değiştiremez
+    response = await client.patch(f"/boards/{99999}", json={"name": "not_exist_column"} ,headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Board not found"
+
+async def test_rename_board_rejects_empty_name(client, owner_headers, stranger_headers):
+    # owner, workspace açar
+    response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # owner, workspace'te board oluşturma
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": "first_board"} ,headers=owner_headers)
+    assert response.status_code == 200, response.text
+    board_id = response.json()["id"]
+
+
+    # owner, board ismini boş isim ile değştiremez
+    response = await client.patch(f"/boards/{board_id}", json={"name": ""}, headers= owner_headers)
+    assert response.status_code == 422, response.text
+
+    # owner, stranger'ı member olarak ekler
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # member, board ismini boş isim ile değiştiremez
+    response = await client.patch(f"/boards/{board_id}", json={"name": ""}, headers=stranger_headers)
+    assert response.status_code == 422, response.text
+
+    # owner, board listesine bakar
+    response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    names = [b["name"] for b in response.json()]
+    assert "first_board" in names
