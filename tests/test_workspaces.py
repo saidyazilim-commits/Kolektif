@@ -43,6 +43,33 @@ async def test_workspace_creation_is_atomic(client, owner_headers, engine, monke
     assert count == 0
 
 
+@pytest.mark.parametrize("bad_name", ["", "   "])
+async def test_create_workspace_rejects_invalid_name(client, owner_headers, bad_name):
+    # 1. owner, geçersiz adla workspace açmayı dener
+    response = await client.post("/workspaces/", json={"name": bad_name}, headers=owner_headers)
+    assert response.status_code == 422, response.text
+
+    # 2. hiçbir workspace oluşmadı
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+
+
+async def test_rename_workspace_rejects_whitespace_only_name(client, owner_headers):
+    # 1. owner, workspace açar
+    response = await client.post("/workspaces/", json={"name": "rol_testi"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 2. owner, adı yalnızca boşlukla değiştirmeyi dener
+    response = await client.patch(f"/workspaces/{ws_id}", json={"name": " "}, headers= owner_headers)
+    assert response.status_code == 422, response.text
+
+    # 3. ad değişmedi
+    response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
+    assert response.json()["name"] == "rol_testi"
+
+
 async def test_member_cannot_add_members(client, owner_headers, stranger_headers, third_headers):
     # 0. kullanıcı numaraları
     response = await client.get("/users/me", headers=stranger_headers)

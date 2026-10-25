@@ -2,8 +2,10 @@ from pydantic import ConfigDict, BaseModel, Field
 import datetime
 from typing import Literal
 
+
 class WorkspaceCreate(BaseModel):
-    name : str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name : str = Field(min_length=1)
 
 class WorkspaceResponse(BaseModel):
     id : int
@@ -17,4 +19,5 @@ class WorkspaceMemberCreate(BaseModel):
     role : Literal["owner", "member"]
 
 class WorkspaceUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     name : str = Field(min_length=1)
