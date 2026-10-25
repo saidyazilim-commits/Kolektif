@@ -21,6 +21,7 @@ async def test_stranger_cannot_read_workspace(client, owner_headers, stranger_he
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
 
+
 async def test_workspace_creation_is_atomic(client, owner_headers, engine, monkeypatch):
     # 1. üyelik nesnesi oluşturmayı bozuyoruz, ikinci adım patlasın
     def broken_member(*args, **kwargs):
@@ -39,55 +40,75 @@ async def test_workspace_creation_is_atomic(client, owner_headers, engine, monke
 
     assert count == 0
 
+
 async def test_member_cannot_add_members(client, owner_headers, stranger_headers, third_headers):
     # 0. kullanıcı numaraları
     response = await client.get("/users/me", headers=stranger_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     stranger_id = response.json()["id"]
     response = await client.get("/users/me", headers=third_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     third_id = response.json()["id"]
 
     # 1. sahip workspace oluşturur
     response = await client.post("/workspaces/", json={"name": "rol_testi"}, headers=owner_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     ws_id = response.json()["id"]
 
     # 2. sahip, yabancıyı "member" olarak ekler
     response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     # 3. artık üye: workspace'i okuyabilir
     response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     # 4. ama üye ekleyemez
     response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": third_id, "role": "member"}, headers=stranger_headers)
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Not the owner of this workspace"
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Owner role required"
 
     # 5. üçüncü kişi hâlâ dışarıda
     response = await client.get(f"/workspaces/{ws_id}", headers=third_headers)
-    assert response.status_code == 403
+    assert response.status_code == 403, response.text
+
+
+async def test_non_member_cannot_add_members(client, owner_headers, stranger_headers, third_headers):
+    # owner, workspace açar
+    response = await client.post("/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # third user information
+    response = await client.get("/users/me", headers=third_headers)
+    assert response.status_code == 200, response.text
+    third_id = response.json()["id"]
+
+    # 2. yabancı, third user "member" olarak ekleyemez
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": third_id, "role": "member"}, headers=stranger_headers)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"] == "Not a member of this workspace"
+
 
 async def test_invalid_role_is_rejected(client, owner_headers, stranger_headers):
     # 0. yabancının numarası
     response = await client.get("/users/me", headers=stranger_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     stranger_id = response.json()["id"]
 
     # 1. sahip workspace oluşturur
     response = await client.post("/workspaces/", json={"name": "rol_dogrulama"}, headers=owner_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     ws_id = response.json()["id"]
 
     # 2. sahip geçersiz bir rolle eklemeyi dener
     response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "superadmin"}, headers=owner_headers)
-    assert response.status_code == 422
+    assert response.status_code == 422, response.text
 
     # 3. yabancı hâlâ üye değil
     response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
-    assert response.status_code == 403
+    assert response.status_code == 403, response.text
+
 
 async def test_owner_can_delete_workspace_and_its_boards(client, owner_headers):
     # 1-a. sahip workspace oluşturur
@@ -108,7 +129,8 @@ async def test_owner_can_delete_workspace_and_its_boards(client, owner_headers):
     # Cevap: üyelik satırını arıyor. workspace silinince üyelik satırı da silindi, kimse üye değil.
     response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
     assert response.status_code == 403, response.text
-    
+
+
 async def test_member_cannot_delete_workspace(client, owner_headers, stranger_headers):
     # 1. owner, workspace oluşturur
     response = await client.post("/workspaces/", json={"name": "silme_testi"}, headers=owner_headers)
@@ -122,7 +144,7 @@ async def test_member_cannot_delete_workspace(client, owner_headers, stranger_he
 
     # 1-a. owner, yabancıyı "member" olarak ekler
     response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"} ,headers=owner_headers)
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     # 2. member, workspace silemez
     response = await client.delete(f"/workspaces/{ws_id}", headers=stranger_headers)
@@ -133,6 +155,7 @@ async def test_member_cannot_delete_workspace(client, owner_headers, stranger_he
     response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "silme_testi"
+
 
 async def test_non_member_cannot_delete_workspace(client, owner_headers, stranger_headers):
     # 1. sahip workspace oluşturur
@@ -150,12 +173,14 @@ async def test_non_member_cannot_delete_workspace(client, owner_headers, strange
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "silme_testi"
 
+
 async def test_delete_missing_workspace_returns_404(client, owner_headers):
     
     # 1. owner, workspace siler ve 404 alır
     response = await client.delete(f"/workspaces/{999999}", headers=owner_headers)
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "Workspace not found"
+
 
 async def test_delete_workspace_does_not_affect_other_workspaces(client, owner_headers):
     # 1. owner, ilk workspace oluşturur
@@ -185,6 +210,7 @@ async def test_delete_workspace_does_not_affect_other_workspaces(client, owner_h
     assert response.status_code == 200, response.text
     assert len(response.json()) == 1
 
+
 async def test_member_can_rename_workspace(client, owner_headers, stranger_headers):
     # owner, workspace açar
     response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
@@ -211,6 +237,7 @@ async def test_member_can_rename_workspace(client, owner_headers, stranger_heade
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "yeni_workspace_adi"
 
+
 async def test_owner_can_rename_workspace(client, owner_headers):
     # owner, workspace açar
     response = await client.post(f"/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
@@ -224,6 +251,7 @@ async def test_owner_can_rename_workspace(client, owner_headers):
     response = await client.patch(f"/workspaces/{ws_id}", json={"name": "yeni_workspace_adi"}, headers=owner_headers)
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "yeni_workspace_adi"
+
 
 async def test_non_member_cannot_rename_workspace(client, owner_headers, stranger_headers):
     # owner, workspace açar
@@ -240,11 +268,13 @@ async def test_non_member_cannot_rename_workspace(client, owner_headers, strange
     response = await client.get(f"/workspaces/{ws_id}", headers=owner_headers)
     assert response.json()["name"] == "workspace_1"
 
+
 async def test_rename_missing_workspace_returns_404(client, owner_headers):
     # 1. owner, workspace göremez ve 404 alır
     response = await client.patch(f"/workspaces/{999999}",json={"name": "herhangi_bir_ad"}, headers=owner_headers)
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "Workspace not found"
+
 
 async def test_rename_workspace_rejects_empty_name(client, owner_headers, stranger_headers):
     # owner, workspace açar
@@ -275,6 +305,7 @@ async def test_rename_workspace_rejects_empty_name(client, owner_headers, strang
     # member, ismin değişmediğini görür
     response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
     assert response.json()["name"] == "workspace_1"
+
 
 async def test_get_missing_workspace_returns_404(client, owner_headers):
     # 1. owner olmayan workspace okuyamaz

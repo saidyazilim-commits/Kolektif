@@ -54,11 +54,11 @@ async def get_workspace(
     if workspace is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    # 2. üye mi? (deps.py'deki yardımcı)
+    # 2. üye kontrolü
     await verify_workspace_membership(workspace.id, current_user.id, db)
 
-    return workspace
-        
+    return workspace  
+
 @router.post("/{workspace_id}/members", response_model=WorkspaceMemberCreate)
 async def add_workspace_member(
     workspace_id: int,
@@ -66,17 +66,8 @@ async def add_workspace_member(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(
-    select(WorkspaceMember).where(
-        WorkspaceMember.user_id == current_user.id,
-        WorkspaceMember.workspace_id == workspace_id,
-        WorkspaceMember.role == "owner"
-        )
-    )
-    owner_check = result.scalar_one_or_none()
-
-    if owner_check is None:
-        raise HTTPException(status_code=403, detail="Not the owner of this workspace")
+    # 1. owner kontrolü (deps.py'deki yardımcı)
+    await verify_workspace_owner(workspace_id, current_user.id, db)
     
     workspace_member_result = await db.execute(select(WorkspaceMember).where(
         WorkspaceMember.user_id == member_in.user_id, 
@@ -110,7 +101,7 @@ async def delete_workspace(
     if workspace is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
     
-    # 2. owner mı? (hangi helper? await?)
+    # 2. owner kontrolü
     await verify_workspace_owner(workspace.id, current_user.id, db)
     # 3. sil + kaydet
     await db.delete(workspace)
