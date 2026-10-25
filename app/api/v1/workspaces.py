@@ -6,7 +6,7 @@ from app.models.workspace import Workspace
 from app.models.workspace_member import WorkspaceMember
 from app.models.user import User
 from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberCreate, WorkspaceUpdate
-from app.core.deps import get_current_user, verify_workspace_owner, verify_workspace_membership
+from app.core.deps import get_current_user, get_workspace_or_404, verify_workspace_owner, verify_workspace_membership
 
 router = APIRouter()
 
@@ -49,10 +49,7 @@ async def get_workspace(
     current_user: User = Depends(get_current_user)
 ):
     # 1. workspace'i bul
-    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
-    workspace = workspace_result.scalar_one_or_none()
-    if workspace is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+    workspace = await get_workspace_or_404(workspace_id, db)
 
     # 2. üye kontrolü
     await verify_workspace_membership(workspace.id, current_user.id, db)
@@ -67,10 +64,7 @@ async def add_workspace_member(
     current_user: User = Depends(get_current_user)
 ):
     # 1. workspace'i bul; yoksa 404 "Workspace not found"
-    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
-    workspace = workspace_result.scalar_one_or_none()
-    if workspace is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+    workspace = await get_workspace_or_404(workspace_id, db)
 
     # 2. owner kontrolü 
     await verify_workspace_owner(workspace.id, current_user.id, db)
@@ -102,10 +96,7 @@ async def delete_workspace(
     current_user: User = Depends(get_current_user)
 ):
     # 1. workspace'i bul; yoksa 404 "Workspace not found"
-    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
-    workspace = workspace_result.scalar_one_or_none()
-    if workspace is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+    workspace = await get_workspace_or_404(workspace_id, db)
     
     # 2. owner kontrolü
     await verify_workspace_owner(workspace.id, current_user.id, db)
@@ -121,10 +112,7 @@ async def rename_workspace(
     current_user: User = Depends(get_current_user)
 ):
     # 1. workspace'i bul; yoksa 404 "Workspace not found"
-    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
-    workspace = workspace_result.scalar_one_or_none()
-    if workspace is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+    workspace = await get_workspace_or_404(workspace_id, db)
     # 2. üye kontrolü yap workspace.id ile
     await verify_workspace_membership(workspace.id, current_user.id, db)
     # 3. adı güncelle, kaydet, güncel hâli yenile

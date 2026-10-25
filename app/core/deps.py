@@ -9,6 +9,7 @@ from app.models.board import Board
 from app.models.board_column import BoardColumn
 from app.models.user import User
 from app.core.config import settings
+from app.models.workspace import Workspace
 from app.models.workspace_member import WorkspaceMember
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="users/login")
@@ -41,6 +42,13 @@ async def verify_workspace_membership(workspace_id: int, user_id: int, db: Async
     if membership is None:
         raise HTTPException(status_code=403, detail="Not a member of this workspace")
     return membership
+
+async def get_workspace_or_404(workspace_id: int, db: AsyncSession) -> Workspace:
+    result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return workspace
 
 async def get_column_with_access(column_id: int, user_id: int, db: AsyncSession) -> BoardColumn:
     board_column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
