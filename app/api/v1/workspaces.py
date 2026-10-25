@@ -48,23 +48,16 @@ async def get_workspace(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(
-    select(WorkspaceMember).where(
-        WorkspaceMember.user_id == current_user.id,
-        WorkspaceMember.workspace_id == workspace_id
-    )
-)
-    membership = result.scalar_one_or_none()
+    # 1. workspace'i bul
+    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = workspace_result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
-    if membership is None:
-        raise HTTPException(status_code=403, detail="Not a member of this workspace")
-    else:
-        workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
-        workspace = workspace_result.scalar_one_or_none()
-        if workspace is None:
-            raise HTTPException(status_code=404, detail="Not Found")
-        else:
-            return workspace
+    # 2. üye mi? (deps.py'deki yardımcı)
+    await verify_workspace_membership(workspace.id, current_user.id, db)
+
+    return workspace
         
 @router.post("/{workspace_id}/members", response_model=WorkspaceMemberCreate)
 async def add_workspace_member(

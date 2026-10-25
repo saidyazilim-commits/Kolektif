@@ -275,4 +275,9 @@ async def test_rename_workspace_rejects_empty_name(client, owner_headers, strang
     # member, ismin değişmediğini görür
     response = await client.get(f"/workspaces/{ws_id}", headers=stranger_headers)
     assert response.json()["name"] == "workspace_1"
-    
+
+async def test_get_missing_workspace_returns_404(client, owner_headers):
+    # 1. owner olmayan workspace okuyamaz
+    response = await client.get(f"/workspaces/{999999}", headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Workspace not found"
