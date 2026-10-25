@@ -155,6 +155,13 @@ async def test_delete_column_only_affects_that_columns_board(client, owner_heade
     assert response.json()["detail"] == "Column not found"
 
 
+async def test_create_column_in_missing_board_returns_404(client, owner_headers):
+    # 1. owner, var olmayan board'a kolon eklemeye çalışır
+    response = await client.post(f"/boards/{999999}/columns", json={"name": "herhangi_bir_ad", "position": 0}, headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Board not found"
+
+
 async def test_list_boards_of_missing_workspace_returns_404(client, owner_headers):
     # 1. owner, var olmayan workspace'in board'larını listelemeye çalışır
     response = await client.get(f"/workspaces/{999999}/boards", headers=owner_headers)
