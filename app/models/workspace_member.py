@@ -1,5 +1,5 @@
 from app.db.base import Base
-from sqlalchemy import DateTime, Integer, String
+from sqlalchemy import DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy import ForeignKey
 import datetime
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
+    __table_args__ = (UniqueConstraint("user_id","workspace_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id : Mapped[int] = mapped_column(ForeignKey("users.id"))

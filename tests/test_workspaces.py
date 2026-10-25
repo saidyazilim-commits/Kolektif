@@ -1,5 +1,7 @@
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
 
 async def test_stranger_cannot_read_workspace(client, owner_headers, stranger_headers):
     # 1. sahip workspace oluşturur
@@ -121,6 +123,26 @@ async def test_cannot_add_same_member_twice(client, owner_headers, stranger_head
     response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
     assert response.status_code == 400, response.text
     assert response.json()["detail"] == "User is already a member"
+
+
+async def test_database_rejects_duplicate_membership(client, owner_headers, engine):
+    # 1. owner'ın id'sini al
+    response = await client.get("/users/me", headers=owner_headers)
+    assert response.status_code == 200, response.text
+    owner_id = response.json()["id"]
+
+    # 2. owner workspace açar (owner üyeliği otomatik oluşur)
+    response = await client.post("/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 3. aynı (user_id, workspace_id) çiftini doğrudan SQL ile ikinci kez ekle
+    with pytest.raises(IntegrityError):
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("INSERT INTO workspace_members (user_id, workspace_id, role, joined_at) VALUES (:u, :w, 'member', now())"),
+                {"u": owner_id, "w": ws_id},
+            )
 
 
 async def test_invalid_role_is_rejected(client, owner_headers, stranger_headers):
