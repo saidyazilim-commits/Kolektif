@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.models.board import Board
 from app.models.board_column import BoardColumn
 from app.models.user import User
+from app.models.workspace import Workspace
 from app.schemas.board import BoardCreate, BoardResponse, BoardUpdate
 from app.core.deps import get_current_user, verify_workspace_membership, verify_workspace_owner
 from app.schemas.board_column import BoardColumnResponse, BoardColumnUpdate
@@ -18,6 +19,12 @@ async def create_board(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # 1. workspace'i bul; yoksa 404 "Workspace not found"
+    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = workspace_result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
     await verify_workspace_membership(workspace_id, current_user.id, db)
     board = Board(name=board_in.name, workspace_id=workspace_id)
     db.add(board)
@@ -31,6 +38,12 @@ async def list_boards(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # 1. workspace'i bul; yoksa 404 "Workspace not found"
+    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = workspace_result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
     await verify_workspace_membership(workspace_id, current_user.id, db)
     result = await db.execute(select(Board).where(Board.workspace_id == workspace_id))
     all_results = result.scalars().all()

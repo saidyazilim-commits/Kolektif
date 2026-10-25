@@ -180,10 +180,11 @@ async def test_owner_can_delete_workspace_and_its_boards(client, owner_headers):
     assert response.status_code == 204, response.text
 
     # 4. silinmiş workspace boards listeleme
-    # Soru: “Silinmiş workspace’in board listesi 403 mü, neden?”
-    # Cevap: üyelik satırını arıyor. workspace silinince üyelik satırı da silindi, kimse üye değil.
+    # Soru: “Silinmiş workspace’in board listesi 404 mü, neden?”
+    # Cevap: workspace yok.
     response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
-    assert response.status_code == 403, response.text
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Workspace not found"
 
 
 async def test_member_cannot_delete_workspace(client, owner_headers, stranger_headers):
