@@ -102,6 +102,27 @@ async def test_add_member_to_missing_workspace_returns_404(client, owner_headers
     assert response.json()["detail"] == "Workspace not found"
 
 
+async def test_cannot_add_same_member_twice(client, owner_headers, stranger_headers):
+    # 1. stranger'ın id'sini al
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    # 2. owner, workspace açar
+    response = await client.post("/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 3. owner, stranger'ı ilk kez ekler: başarılı
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # 4. owner, aynı kişiyi ikinci kez eklemeyi dener
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "User is already a member"
+
+
 async def test_invalid_role_is_rejected(client, owner_headers, stranger_headers):
     # 0. yabancının numarası
     response = await client.get("/users/me", headers=stranger_headers)
