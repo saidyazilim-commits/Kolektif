@@ -66,8 +66,14 @@ async def add_workspace_member(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. owner kontrolü (deps.py'deki yardımcı)
-    await verify_workspace_owner(workspace_id, current_user.id, db)
+    # 1. workspace'i bul; yoksa 404 "Workspace not found"
+    workspace_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+    workspace = workspace_result.scalar_one_or_none()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    # 2. owner kontrolü 
+    await verify_workspace_owner(workspace.id, current_user.id, db)
     
     workspace_member_result = await db.execute(select(WorkspaceMember).where(
         WorkspaceMember.user_id == member_in.user_id, 

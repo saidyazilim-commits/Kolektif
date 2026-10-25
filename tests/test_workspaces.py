@@ -90,6 +90,18 @@ async def test_non_member_cannot_add_members(client, owner_headers, stranger_hea
     assert response.json()["detail"] == "Not a member of this workspace"
 
 
+async def test_add_member_to_missing_workspace_returns_404(client, owner_headers, third_headers):
+    # 1. third kullanıcının id'sini al
+    response = await client.get("/users/me", headers=third_headers)
+    assert response.status_code == 200, response.text
+    third_id = response.json()["id"]
+
+    # 2. var olmayan workspace'e üye eklemeyi dene (owner olarak)
+    response = await client.post(f"/workspaces/{999999}/members", json={"user_id": third_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Workspace not found"
+
+
 async def test_invalid_role_is_rejected(client, owner_headers, stranger_headers):
     # 0. yabancının numarası
     response = await client.get("/users/me", headers=stranger_headers)
