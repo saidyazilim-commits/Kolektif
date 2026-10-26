@@ -50,16 +50,20 @@ async def get_workspace_or_404(workspace_id: int, db: AsyncSession) -> Workspace
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
 
+async def get_board_or_404(board_id: int, db: AsyncSession) -> Board:
+    result = await db.execute(select(Board).where(Board.id == board_id))
+    board = result.scalar_one_or_none()
+    if board is None:
+        raise HTTPException(status_code=404, detail="Board not found")
+    return board
+
 async def get_column_with_access(column_id: int, user_id: int, db: AsyncSession) -> BoardColumn:
     board_column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
     board_column = board_column_result.scalar_one_or_none()
     if board_column is None:
         raise HTTPException(status_code=404, detail="Column not found")
     
-    board_result = await db.execute(select(Board).where(Board.id == board_column.board_id))
-    board = board_result.scalar_one_or_none()
-    if board is None:
-        raise HTTPException(status_code=404, detail="Board not found")
+    board = await get_board_or_404(board_column.board_id, db)
     await verify_workspace_membership(board.workspace_id, user_id, db)
     return board_column
 

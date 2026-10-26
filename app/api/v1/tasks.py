@@ -2,12 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
-from app.models.board import Board
 from app.models.board_column import BoardColumn
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
-from app.core.deps import get_current_user, get_column_with_access, get_task_with_access, verify_workspace_membership, verify_workspace_owner
+from app.core.deps import get_current_user, get_column_with_access, get_task_with_access, verify_workspace_membership, verify_workspace_owner, get_board_or_404
 
 router = APIRouter()
 
@@ -20,8 +19,7 @@ async def create_task(
 ):
     column = await get_column_with_access(column_id, current_user.id, db)
     if task_in.assignee_id is not None:
-        board_result = await db.execute(select(Board).where(Board.id == column.board_id))
-        board = board_result.scalar_one_or_none()
+        board = await get_board_or_404(column.board_id, db)
         await verify_workspace_membership(board.workspace_id, task_in.assignee_id, db)
     task = Task(title=task_in.title, description=task_in.description, position=task_in.position, column_id=column_id, assignee_id=task_in.assignee_id)
     db.add(task)
@@ -57,8 +55,7 @@ async def update_task(
     column =  await get_column_with_access(task_column, current_user.id, db)
     final_assignee = changes.get("assignee_id", task.assignee_id)
     if final_assignee is not None:
-        board_result = await db.execute(select(Board).where(Board.id == column.board_id))
-        board = board_result.scalar_one_or_none()
+        board = await get_board_or_404(column.board_id, db)
         await verify_workspace_membership(board.workspace_id,final_assignee, db)
     for key, value in changes.items():
         setattr(task, key, value)
@@ -78,8 +75,7 @@ async def delete_task(
     column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == task.column_id))
     column = column_result.scalar_one()
 
-    board_result = await db.execute(select(Board).where(Board.id == column.board_id))
-    board = board_result.scalar_one()
+    board = await get_board_or_404(column.board_id, db)
 
     await verify_workspace_owner(board.workspace_id, current_user.id, db)
 
