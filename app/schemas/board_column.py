@@ -2,8 +2,9 @@ from pydantic import ConfigDict, BaseModel, Field
 import datetime
 
 class BoardColumnCreate(BaseModel):
-    name : str
+    name : str = Field(min_length=1)
     position : int
+    model_config = ConfigDict(str_strip_whitespace=True)
 
 class BoardColumnResponse(BaseModel):
     id : int
@@ -16,3 +17,4 @@ class BoardColumnResponse(BaseModel):
 
 class BoardColumnUpdate(BaseModel):
     name : str = Field(min_length=1)
+    model_config = ConfigDict(str_strip_whitespace=True)

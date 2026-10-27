@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import text
 
 
@@ -305,3 +306,47 @@ async def test_delete_missing_board_returns_404(client, owner_headers):
     response = await client.delete(f"/boards/{99999}", headers=owner_headers)
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "Board not found"
+
+@pytest.mark.parametrize("name", ["", "   "])
+async def test_create_board_rejects_invalid_name(client, owner_headers, column_id, name):
+    # 0. sahibin workspace numarası
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()[0]["id"]
+
+    # 1. geçersiz adla board oluşturmayı dener
+    response = await client.post(f"/workspaces/{ws_id}/boards", json={"name": name}, headers=owner_headers)
+    assert response.status_code == 422, response.text
+
+@pytest.mark.parametrize("name", ["", "   "])
+async def test_create_column_rejects_invalid_name(client, owner_headers, column_id, name):
+    # 0. sahibin workspace numarası
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()[0]["id"]
+
+    response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
+    assert response.status_code == 200
+    board_id = response.json()[0]["id"]
+
+    # 1. geçersiz adla column oluşturmayı dener
+    response = await client.post(f"/boards/{board_id}/columns", json={"name": name, "position": 0}, headers=owner_headers)
+    assert response.status_code == 422, response.text
+
+async def test_rename_board_rejects_whitespace_only_name(client, owner_headers, column_id):
+    # 0. sahibin workspace ve board numarası
+    response = await client.get("/workspaces/", headers=owner_headers)
+    assert response.status_code == 200
+    ws_id = response.json()[0]["id"]
+    response = await client.get(f"/workspaces/{ws_id}/boards", headers=owner_headers)
+    assert response.status_code == 200
+    board_id = response.json()[0]["id"]
+
+    # 1. yalnızca boşluktan oluşan adla yeniden adlandırmayı dener
+    response = await client.patch(f"/boards/{board_id}", json={"name": "   "}, headers=owner_headers)
+    assert response.status_code == 422, response.text
+
+async def test_rename_column_rejects_whitespace_only_name(client, owner_headers, column_id):
+    # 1. yalnızca boşluktan oluşan adla yeniden adlandırmayı dener
+    response = await client.patch(f"/columns/{column_id}", json={"name": "   "}, headers=owner_headers)
+    assert response.status_code == 422, response.text
