@@ -300,3 +300,8 @@ async def test_rename_column_rejects_empty_name(client, owner_headers, column_id
     response = await client.patch(f"/columns/{column_id}", json={"name": ""}, headers=owner_headers)
     assert response.status_code == 422, response.text
 
+async def test_delete_missing_board_returns_404(client, owner_headers):
+    # 1. owner, olmayan board'u silmeye çalışır
+    response = await client.delete(f"/boards/{99999}", headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "Board not found"
