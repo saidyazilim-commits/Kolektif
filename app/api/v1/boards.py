@@ -6,7 +6,7 @@ from app.models.board import Board
 from app.models.board_column import BoardColumn
 from app.models.user import User
 from app.schemas.board import BoardCreate, BoardResponse, BoardUpdate
-from app.core.deps import get_current_user, get_workspace_or_404, verify_workspace_membership, verify_workspace_owner
+from app.core.deps import get_board_or_404, get_current_user, get_workspace_or_404, verify_workspace_membership, verify_workspace_owner
 from app.schemas.board_column import BoardColumnResponse, BoardColumnUpdate
 
 router = APIRouter()
@@ -48,10 +48,7 @@ async def delete_board(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    board_result = await db.execute(select(Board).where(Board.id == board_id))
-    board = board_result.scalar_one_or_none()
-    if board is None:
-        raise HTTPException(status_code=404, detail="Board not found")
+    board = await get_board_or_404(board_id, db)
 
     await verify_workspace_owner(board.workspace_id, current_user.id, db)
 
@@ -65,13 +62,7 @@ async def rename_board(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. board'u bul
-    board_result = await db.execute(select(Board).where(Board.id == board_id))
-    board = board_result.scalar_one_or_none()
-
-    # 2. yoksa 404, 
-    if board is None:
-        raise HTTPException(status_code=404, detail="Board not found")
+    board = await get_board_or_404(board_id, db)
 
     # 3. üye mi kontrolü
     await verify_workspace_membership(board.workspace_id, current_user.id, db)
@@ -96,10 +87,7 @@ async def rename_column(
         raise HTTPException(status_code=404, detail="Column not found")
 
     # 2. kolonun board'unu bul
-    board_result = await db.execute(select(Board).where(Board.id == column.board_id))
-    board = board_result.scalar_one_or_none()
-    if board is None:
-        raise HTTPException(status_code=404, detail="Board not found")
+    board = await get_board_or_404(column.board_id, db)
 
     # 3. üye mi? (workspace id'si board'dan gelir)
     await verify_workspace_membership(board.workspace_id, current_user.id, db)
@@ -116,10 +104,7 @@ async def delete_column(column_id: int, current_user: User = Depends(get_current
     column = column_result.scalar_one_or_none()
     if column is None:
         raise HTTPException(status_code=404, detail="Column not found") 
-    board_result = await db.execute(select(Board).where(Board.id == column.board_id))
-    board = board_result.scalar_one_or_none()
-    if board is None:
-        raise HTTPException(status_code=404, detail="Board not found")
+    board = await get_board_or_404(column.board_id, db)
     await verify_workspace_owner(board.workspace_id, current_user.id, db)
     await db.delete(column)
     await db.commit()
