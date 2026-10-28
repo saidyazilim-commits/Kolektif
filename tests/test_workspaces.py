@@ -395,3 +395,14 @@ async def test_get_missing_workspace_returns_404(client, owner_headers):
     response = await client.get(f"/workspaces/{999999}", headers=owner_headers)
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "Workspace not found"
+
+async def test_add_nonexistent_user_returns_404(client, owner_headers):
+    # 1. owner workspace açar
+    response = await client.post("/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 2. olmayan bir kullanıcıyı eklemeyi dener
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": 99999, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"] == "User not found"

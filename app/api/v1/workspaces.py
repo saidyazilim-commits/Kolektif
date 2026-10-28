@@ -68,6 +68,12 @@ async def add_workspace_member(
 
     # 2. owner kontrolü 
     await verify_workspace_owner(workspace.id, current_user.id, db)
+
+    # 3. eklenecek kullanıcı kontrolü, yoksa 404 "User not found"
+    user_result = await db.execute(select(User).where(User.id == member_in.user_id))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
     
     workspace_member_result = await db.execute(select(WorkspaceMember).where(
         WorkspaceMember.user_id == member_in.user_id, 
