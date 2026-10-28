@@ -6,7 +6,7 @@ from app.models.workspace import Workspace
 from app.models.workspace_member import WorkspaceMember
 from app.models.user import User
 from app.schemas.workspace import WorkspaceCreate, WorkspaceResponse, WorkspaceMemberCreate, WorkspaceUpdate
-from app.core.deps import get_current_user, get_workspace_or_404, verify_workspace_owner, verify_workspace_membership
+from app.core.deps import get_current_user, get_membership_or_none, get_workspace_or_404, verify_workspace_owner, verify_workspace_membership
 
 router = APIRouter()
 
@@ -75,13 +75,8 @@ async def add_workspace_member(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    workspace_member_result = await db.execute(select(WorkspaceMember).where(
-        WorkspaceMember.user_id == member_in.user_id, 
-        WorkspaceMember.workspace_id == workspace_id))
-    
-    workspace_member = workspace_member_result.scalar_one_or_none()
-
-    if workspace_member is not None:
+    existing_member = await get_membership_or_none(workspace_id, member_in.user_id, db)
+    if existing_member is not None:
         raise HTTPException(status_code=400, detail="User is already a member")
 
     new_member = WorkspaceMember(

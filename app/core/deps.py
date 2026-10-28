@@ -50,6 +50,12 @@ async def get_workspace_or_404(workspace_id: int, db: AsyncSession) -> Workspace
         raise HTTPException(status_code=404, detail="Workspace not found")
     return workspace
 
+async def get_membership_or_none(workspace_id: int, user_id: int, db: AsyncSession) -> WorkspaceMember | None:
+    result = await db.execute(select(WorkspaceMember).where(
+        WorkspaceMember.workspace_id == workspace_id,
+        WorkspaceMember.user_id == user_id))
+    return result.scalar_one_or_none()
+
 async def get_board_or_404(board_id: int, db: AsyncSession) -> Board:
     result = await db.execute(select(Board).where(Board.id == board_id))
     board = result.scalar_one_or_none()
