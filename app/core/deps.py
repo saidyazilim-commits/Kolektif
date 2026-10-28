@@ -57,15 +57,19 @@ async def get_board_or_404(board_id: int, db: AsyncSession) -> Board:
         raise HTTPException(status_code=404, detail="Board not found")
     return board
 
-async def get_column_with_access(column_id: int, user_id: int, db: AsyncSession) -> BoardColumn:
-    board_column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
-    board_column = board_column_result.scalar_one_or_none()
-    if board_column is None:
+async def get_column_or_404(column_id: int, db: AsyncSession) -> BoardColumn:
+    result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
+    column = result.scalar_one_or_none()
+    if column is None:
         raise HTTPException(status_code=404, detail="Column not found")
+    return column
+
+async def get_column_with_access(column_id: int, user_id: int, db: AsyncSession) -> BoardColumn:
+    column = await get_column_or_404(column_id, db)
     
-    board = await get_board_or_404(board_column.board_id, db)
+    board = await get_board_or_404(column.board_id, db)
     await verify_workspace_membership(board.workspace_id, user_id, db)
-    return board_column
+    return column
 
 async def get_task_with_access(task_id: int, user_id: int, db: AsyncSession) -> Task:
     task_result = await db.execute(select(Task).where(Task.id == task_id))

@@ -2,11 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
-from app.models.board_column import BoardColumn
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
-from app.core.deps import get_current_user, get_column_with_access, get_task_with_access, verify_workspace_membership, verify_workspace_owner, get_board_or_404
+from app.core.deps import get_column_or_404, get_current_user, get_column_with_access, get_task_with_access, verify_workspace_membership, verify_workspace_owner, get_board_or_404
 
 router = APIRouter()
 
@@ -72,8 +71,7 @@ async def delete_task(
 ):
     task = await get_task_with_access(task_id, current_user.id, db)
 
-    column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == task.column_id))
-    column = column_result.scalar_one()
+    column = await get_column_or_404(task.column_id, db)
 
     board = await get_board_or_404(column.board_id, db)
 

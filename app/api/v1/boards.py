@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
 from app.models.board import Board
-from app.models.board_column import BoardColumn
 from app.models.user import User
 from app.schemas.board import BoardCreate, BoardResponse, BoardUpdate
-from app.core.deps import get_board_or_404, get_current_user, get_workspace_or_404, verify_workspace_membership, verify_workspace_owner
+from app.core.deps import get_board_or_404, get_column_or_404, get_current_user, get_workspace_or_404, verify_workspace_membership, verify_workspace_owner
 from app.schemas.board_column import BoardColumnResponse, BoardColumnUpdate
 
 router = APIRouter()
@@ -80,19 +79,15 @@ async def rename_column(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # 1. kolonu bul
-    column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
-    column = column_result.scalar_one_or_none()
-    if column is None:
-        raise HTTPException(status_code=404, detail="Column not found")
+    column = await get_column_or_404(column_id, db)
 
-    # 2. kolonun board'unu bul
+    # 1. kolonun board'unu bul
     board = await get_board_or_404(column.board_id, db)
 
-    # 3. üye mi? (workspace id'si board'dan gelir)
+    # 2. üye mi? (workspace id'si board'dan gelir)
     await verify_workspace_membership(board.workspace_id, current_user.id, db)
 
-    # 4. ismi değiştir, kaydet, yenile, döndür
+    # 3. ismi değiştir, kaydet, yenile, döndür
     column.name = column_in.name
     await db.commit()
     await db.refresh(column)
@@ -100,10 +95,7 @@ async def rename_column(
 
 @router.delete("/columns/{column_id}", status_code=204)
 async def delete_column(column_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    column_result = await db.execute(select(BoardColumn).where(BoardColumn.id == column_id))
-    column = column_result.scalar_one_or_none()
-    if column is None:
-        raise HTTPException(status_code=404, detail="Column not found") 
+    column = await get_column_or_404(column_id, db)
     board = await get_board_or_404(column.board_id, db)
     await verify_workspace_owner(board.workspace_id, current_user.id, db)
     await db.delete(column)
