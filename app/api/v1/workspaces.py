@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
@@ -86,7 +87,11 @@ async def add_workspace_member(
     )
     
     db.add(new_member)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="User is already a member")
     await db.refresh(new_member)
     return new_member
 

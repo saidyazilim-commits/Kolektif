@@ -406,3 +406,28 @@ async def test_add_nonexistent_user_returns_404(client, owner_headers):
     response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": 99999, "role": "member"}, headers=owner_headers)
     assert response.status_code == 404, response.text
     assert response.json()["detail"] == "User not found"
+
+async def test_race_duplicate_member_returns_400(client, owner_headers, stranger_headers, monkeypatch):
+    # 1. stranger'ın id'si, owner workspace açar
+    response = await client.get("/users/me", headers=stranger_headers)
+    assert response.status_code == 200, response.text
+    stranger_id = response.json()["id"]
+
+    # 1-a. owner, workspace açar
+    response = await client.post("/workspaces/", json={"name": "workspace_1"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+    ws_id = response.json()["id"]
+
+    # 2. owner, stranger'ı ilk kez ekler: başarılı
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 200, response.text
+
+    # 3. Python kontrolü yarışı kaçırmış gibi davransın: "üye yok" döndür
+    async def fake_get_membership_or_none(workspace_id, user_id, db):
+        return None
+    monkeypatch.setattr("app.api.v1.workspaces.get_membership_or_none", fake_get_membership_or_none)
+
+    # 4. aynı kişiyi tekrar ekle: kontrol atlanır, kısıt devreye girer
+    response = await client.post(f"/workspaces/{ws_id}/members", json={"user_id": stranger_id, "role": "member"}, headers=owner_headers)
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "User is already a member"
