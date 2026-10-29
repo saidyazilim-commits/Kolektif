@@ -4,25 +4,24 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 
 def hash_password(password: str) -> str:
-    password = password.encode("utf-8")
-    hashed = bcrypt.hashpw(password, bcrypt.gensalt())
-    password = hashed.decode("utf-8")
-    return password
-
-
+    password_bytes = password.encode("utf-8")
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    return hashed.decode("utf-8")
+    
+    
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    plain_password = plain_password.encode("utf-8")
-    hashed_password = hashed_password.encode("utf-8")
+    plain_bytes = plain_password.encode("utf-8")
+    hashed_bytes = hashed_password.encode("utf-8")
 
-    if len(plain_password) > 72:
+    if len(plain_bytes) > 72:
         return False
     
-    if bcrypt.checkpw(plain_password, hashed_password):
+    if bcrypt.checkpw(plain_bytes, hashed_bytes):
         return True
     else:
         return False
     
-def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
 
     if expires_delta:
