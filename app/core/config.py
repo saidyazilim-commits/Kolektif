@@ -16,4 +16,5 @@ class Settings(BaseSettings):
     @property
     def TEST_DATABASE_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@localhost:5432/{self.POSTGRES_TEST_DB}"
-settings = Settings()
+# Settings alanları argüman olarak verilmiyor, BaseSettings onları ortam değişkenleri ve .env dosyasından okuyor, mypy alanları yapıcı argüman sayıyor
+settings = Settings()  # type: ignore[call-arg]
